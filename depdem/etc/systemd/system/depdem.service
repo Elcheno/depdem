@@ -1,0 +1,10 @@
+[Unit]
+Description=Depdem service
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/depdem
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
