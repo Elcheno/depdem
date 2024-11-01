@@ -9,5 +9,6 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 rsa = "0.6.0"
 rand = "0.8.5"
-jsonwebtoken = { version = "9" }
+jsonwebtoken = { version = "9", features = ["use_pem"] }
 dotenvy = "0.15"
+base64 = "0.21"

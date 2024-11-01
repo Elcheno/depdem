@@ -1,6 +1,7 @@
 use crate::utils::transform::transform_vec_to_string;
 
 use crate::models::path_model::PathModel;
+use base64::{engine::general_purpose::STANDARD, Engine};
 use rand::rngs::OsRng;
 use rsa::pkcs8::{DecodePrivateKey, DecodePublicKey};
 use rsa::PublicKey;
@@ -96,4 +97,26 @@ pub fn verify_keys(public_key: &String) -> Result<bool, String> {
         .map_err(|_| "Verify signature failed".to_string())?;
 
     Ok(true)
+}
+
+pub fn verify_signed_token(message: &str, signature: &str) -> Result<String, String> {
+    let public_key_file_path = PathModel::get_public_key_file_path();
+
+    let public_key_data = fs::read(public_key_file_path.unwrap())
+        .map_err(|_| "Error to read private key".to_string())?;
+
+    let public_key = RsaPrivateKey::from_pkcs8_pem(&transform_vec_to_string(&public_key_data))
+        .map_err(|_| "Error to load private key".to_string())?;
+
+    let padding = PaddingScheme::new_pkcs1v15_sign(None);
+
+    // Decodificar firma desde base64
+    let decoded_signature = STANDARD
+        .decode(signature)
+        .map_err(|_| "Error al decodificar la firma de base64 a bytes")?;
+
+    match public_key.verify(padding, message.as_bytes(), &decoded_signature) {
+        Ok(_) => Ok(transform_vec_to_string(&decoded_signature)),
+        Err(_) => Err(String::from("Token inválido o falsificado")),
+    }
 }

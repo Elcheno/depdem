@@ -1,5 +1,5 @@
 use crate::models::response_model::{NetworkResponse, Response, ResponseBody};
-use crate::utils::auth::auth_user;
+use crate::utils::auth::auth;
 use crate::utils::keys::verify_keys;
 use rocket::serde::json::{json, Value};
 
@@ -7,16 +7,17 @@ use rocket::serde::json::{json, Value};
 pub async fn login(public_key: String) -> Result<Value, NetworkResponse> {
     match verify_keys(&public_key) {
         Ok(_) => {
-            let token = auth_user()?;
-            let response = Response {
+            let token = auth()?;
+
+            return Ok(json!(Response {
                 body: ResponseBody::AuthToken(token),
-            };
-            return Ok(json!(response));
+            }));
         }
-        Err(_) => {
+        Err(err) => {
+            println!("ERROR: {:?}", err);
             return Err(NetworkResponse::BadRequest(
                 json!(ResponseBody::Message("Error to verify keys".to_string())).to_string(),
-            ))
+            ));
         }
     }
 }

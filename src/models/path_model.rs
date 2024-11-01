@@ -49,24 +49,46 @@ impl PathModel {
     }
 
     pub fn get_private_key_file_path() -> Option<String> {
-        let private_key_file_path = match env::var("PRIVATE_KEY_FILE") {
+        let dir_path = match env::var("SECRET_PATH") {
+            Ok(path) => path,
+            Err(_) => {
+                println!("Error to load SECRET_PATH env variable");
+                return None;
+            }
+        };
+
+        let private_key_file = match env::var("PRIVATE_KEY_FILE") {
             Ok(path) => path,
             Err(_) => {
                 println!("Error to load PUBLIC_KEY_FILE env variable");
                 return None;
             }
         };
+
+        let private_key_file_path = format!("{}{}", dir_path, private_key_file);
+
         Some(private_key_file_path)
     }
 
     pub fn get_public_key_file_path() -> Option<String> {
-        let public_key_file_path = match env::var("PUBLIC_KEY_FILE") {
+        let dir_path = match env::var("SECRET_PATH") {
+            Ok(path) => path,
+            Err(_) => {
+                println!("Error to load SECRET_PATH env variable");
+                return None;
+            }
+        };
+
+        let public_key_file = match env::var("PUBLIC_KEY_FILE") {
             Ok(path) => path,
             Err(_) => {
                 println!("Error to load PUBLIC_KEY_FILE env variable");
                 return None;
             }
         };
+
+        let public_key_file_path = format!("{}{}", dir_path, public_key_file);
+
         Some(public_key_file_path)
     }
 }
