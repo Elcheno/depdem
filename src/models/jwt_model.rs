@@ -1,10 +1,13 @@
 use crate::models::response_model::{NetworkResponse, Response, ResponseBody};
 use crate::utils::jwt::decode_jwt;
+// use crate::utils::keys::verify_signed_token;
+use crate::models::path_model::PathModel;
 use jsonwebtoken::errors::Error;
 use rocket::http::Status;
 use rocket::request::{FromRequest, Outcome, Request};
 use rocket::serde::json::json;
 use rocket::serde::{Deserialize, Serialize};
+use std::fs;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Claims {
@@ -23,7 +26,13 @@ impl<'r> FromRequest<'r> for JWT {
 
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, NetworkResponse> {
         fn is_valid(key: &str) -> Result<Claims, Error> {
-            Ok(decode_jwt(String::from(key))?)
+            let public_key_file_path = PathModel::get_public_key_file_path();
+
+            let public_key = match fs::read(public_key_file_path.unwrap()) {
+                Ok(data) => data,
+                Err(_) => Vec::new(),
+            };
+            Ok(decode_jwt(String::from(key), &public_key)?)
         }
 
         match req.headers().get_one("authorization") {

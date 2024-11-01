@@ -1,46 +1,32 @@
 use crate::utils::transform::transform_vec_to_string;
 
+use crate::models::path_model::PathModel;
+use base64::{engine::general_purpose::STANDARD, Engine};
 use rand::rngs::OsRng;
 use rsa::pkcs8::{DecodePrivateKey, DecodePublicKey};
 use rsa::PublicKey;
 use rsa::{
     pkcs8::EncodePrivateKey, pkcs8::EncodePublicKey, PaddingScheme, RsaPrivateKey, RsaPublicKey,
 };
-use std::env;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
 
 pub fn generate_keys() -> Result<(), String> {
-    let dir_path = match env::var("SECRET_PATH") {
-        Ok(path) => path,
-        Err(_) => return Err(String::from("Error to load SECRET_PATH env variable")),
-    };
-
-    let private_key_file = match env::var("PRIVATE_KEY_FILE") {
-        Ok(path) => path,
-        Err(_) => return Err(String::from("Error to load PRIVATE_KEY_FILE env variable")),
-    };
-
-    let public_key_file = match env::var("PUBLIC_KEY_FILE") {
-        Ok(path) => path,
-        Err(_) => return Err(String::from("Error to load PUBLIC_KEY_FILE env variable")),
-    };
-
-    let private_key_file_path = format!("{}{}", dir_path, private_key_file);
-    let public_key_file_path = format!("{}{}", dir_path, public_key_file);
+    let paths = PathModel::all_paths()?;
 
     let mut rng = OsRng;
     let private_key = RsaPrivateKey::new(&mut rng, 2048).expect("Error to generate RSA 2048 bits");
     let public_key = RsaPublicKey::from(&private_key);
 
-    if !Path::new(&dir_path).exists() {
-        fs::create_dir_all(&dir_path).map_err(|_| "Error to create directory")?;
+    if !Path::new(&paths.dir_path.clone().unwrap()).exists() {
+        fs::create_dir_all(&paths.dir_path.clone().unwrap())
+            .map_err(|_| "Error to create directory")?;
     }
 
     // Guarda la clave privada en formato PEM
-    let mut private_file =
-        File::create(&private_key_file_path).expect("Error to create private_key.pem file");
+    let mut private_file = File::create(&paths.private_key_file_path.unwrap())
+        .expect("Error to create private_key.pem file");
 
     let private_pem = private_key
         .to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)
@@ -51,8 +37,8 @@ pub fn generate_keys() -> Result<(), String> {
         .expect("Error to write private key in file");
 
     // Guarda la clave pública en formato PEM
-    let mut public_file =
-        File::create(&public_key_file_path).expect("Error to create public_key.pem file");
+    let mut public_file = File::create(&paths.public_key_file_path.unwrap())
+        .expect("Error to create public_key.pem file");
 
     let public_pem = public_key
         .to_public_key_pem(rsa::pkcs8::LineEnding::LF)
@@ -65,49 +51,24 @@ pub fn generate_keys() -> Result<(), String> {
     Ok(())
 }
 
-pub fn load_keys() -> Result<(), String> {
-    let dir_path = match env::var("SECRET_PATH") {
-        Ok(path) => path,
-        Err(_) => return Err(String::from("Error to load SECRET_PATH env variable")),
-    };
+pub fn load_keys() -> Result<String, String> {
+    let paths = PathModel::all_paths()?;
 
-    let private_key_file = match env::var("PRIVATE_KEY_FILE") {
-        Ok(path) => path,
-        Err(_) => return Err(String::from("Error to load PRIVATE_KEY_FILE env variable")),
-    };
-
-    let public_key_file = match env::var("PUBLIC_KEY_FILE") {
-        Ok(path) => path,
-        Err(_) => return Err(String::from("Error to load PUBLIC_KEY_FILE env variable")),
-    };
-
-    let private_key_file_path = format!("{}{}", dir_path, private_key_file);
-    let public_key_file_path = format!("{}{}", dir_path, public_key_file);
-
-    if !Path::new(&private_key_file_path).exists() || !Path::new(&public_key_file_path).exists() {
+    if !Path::new(&paths.private_key_file_path.unwrap()).exists()
+        || !Path::new(&paths.public_key_file_path.unwrap()).exists()
+    {
         return Err(String::from("Error to load keys"));
     } else {
-        Ok(())
+        Ok("Keys loaded successfully".to_string())
     }
 }
 
 pub fn verify_keys(public_key: &String) -> Result<bool, String> {
-    // load path files
-    let dir_path = match env::var("SECRET_PATH") {
-        Ok(path) => path,
-        Err(_) => return Err(String::from("Error to load SECRET_PATH env variable")),
-    };
-
-    let private_key_file = match env::var("PRIVATE_KEY_FILE") {
-        Ok(path) => path,
-        Err(_) => return Err(String::from("Error to load PRIVATE_KEY_FILE env variable")),
-    };
-
-    let private_key_file_path = format!("{}{}", dir_path, private_key_file);
+    let private_key_file_path = PathModel::get_private_key_file_path();
 
     // Cargar la clave privada
-    let private_key_data =
-        fs::read(private_key_file_path).map_err(|_| "Error to read private key".to_string())?;
+    let private_key_data = fs::read(private_key_file_path.unwrap())
+        .map_err(|_| "Error to read private key".to_string())?;
 
     let private_key_string = transform_vec_to_string(&private_key_data);
 
@@ -136,4 +97,26 @@ pub fn verify_keys(public_key: &String) -> Result<bool, String> {
         .map_err(|_| "Verify signature failed".to_string())?;
 
     Ok(true)
+}
+
+pub fn verify_signed_token(message: &str, signature: &str) -> Result<String, String> {
+    let public_key_file_path = PathModel::get_public_key_file_path();
+
+    let public_key_data = fs::read(public_key_file_path.unwrap())
+        .map_err(|_| "Error to read private key".to_string())?;
+
+    let public_key = RsaPrivateKey::from_pkcs8_pem(&transform_vec_to_string(&public_key_data))
+        .map_err(|_| "Error to load private key".to_string())?;
+
+    let padding = PaddingScheme::new_pkcs1v15_sign(None);
+
+    // Decodificar firma desde base64
+    let decoded_signature = STANDARD
+        .decode(signature)
+        .map_err(|_| "Error al decodificar la firma de base64 a bytes")?;
+
+    match public_key.verify(padding, message.as_bytes(), &decoded_signature) {
+        Ok(_) => Ok(transform_vec_to_string(&decoded_signature)),
+        Err(_) => Err(String::from("Token inválido o falsificado")),
+    }
 }

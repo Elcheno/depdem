@@ -1,13 +1,11 @@
 use crate::models::jwt_model::Claims;
-use jsonwebtoken::errors::{Error, ErrorKind};
+
+use jsonwebtoken::errors::Error;
 use jsonwebtoken::{
     decode, encode, get_current_timestamp, Algorithm, DecodingKey, EncodingKey, Header, Validation,
 };
-use std::env;
 
-pub fn create_jwt(id: i32) -> Result<String, Error> {
-    let secret = env::var("SECRET").expect("JWT SECRET must be set");
-
+pub fn create_jwt(id: i32, private_key: &[u8]) -> Result<String, Error> {
     let expiration = get_current_timestamp() + 604800;
 
     let claims = Claims {
@@ -15,25 +13,26 @@ pub fn create_jwt(id: i32) -> Result<String, Error> {
         exp: expiration,
     };
 
-    let header = Header::new(Algorithm::HS512);
+    let header = Header::new(Algorithm::RS256);
 
-    encode(
-        &header,
-        &claims,
-        &EncodingKey::from_secret(secret.as_bytes()),
-    )
+    let encoding_key = match EncodingKey::from_rsa_pem(private_key) {
+        Ok(res) => res,
+        Err(err) => return Err(err),
+    };
+
+    encode(&header, &claims, &encoding_key)
 }
 
-pub fn decode_jwt(token: String) -> Result<Claims, ErrorKind> {
-    let secret = env::var("SECRET").expect("JWT SECRET must be set");
+pub fn decode_jwt(token: String, public_key: &[u8]) -> Result<Claims, Error> {
     let token = token.trim_start_matches("Bearer").trim();
 
-    match decode::<Claims>(
-        &token,
-        &DecodingKey::from_secret(secret.as_bytes()),
-        &Validation::new(Algorithm::HS512),
-    ) {
+    let dencoding_key = match DecodingKey::from_rsa_pem(public_key) {
+        Ok(res) => res,
+        Err(err) => return Err(err),
+    };
+
+    match decode::<Claims>(&token, &dencoding_key, &Validation::new(Algorithm::RS256)) {
         Ok(token) => Ok(token.claims),
-        Err(err) => Err(err.kind().to_owned()),
+        Err(err) => Err(err),
     }
 }
