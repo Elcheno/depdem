@@ -1,3 +1,5 @@
+use crate::utils::transform::transform_vec_to_string;
+
 use rand::rngs::OsRng;
 use rsa::pkcs8::{DecodePrivateKey, DecodePublicKey};
 use rsa::PublicKey;
@@ -104,18 +106,17 @@ pub fn verify_keys(public_key: &String) -> Result<bool, String> {
     let private_key_file_path = format!("{}{}", dir_path, private_key_file);
 
     // Cargar la clave privada
-    let private_key_data = fs::read(private_key_file_path)
-        .map_err(|_| "Error al leer la clave privada".to_string())?;
+    let private_key_data =
+        fs::read(private_key_file_path).map_err(|_| "Error to read private key".to_string())?;
 
-    let private_key_string = String::from_utf8(private_key_data.clone())
-        .map_err(|_| "Error al convertir la clave privada a String".to_string())?;
+    let private_key_string = transform_vec_to_string(&private_key_data);
 
     let private_key = RsaPrivateKey::from_pkcs8_pem(&private_key_string)
-        .map_err(|_| "Error al cargar la clave privada".to_string())?;
+        .map_err(|_| "Error to load private key".to_string())?;
 
     // Cargar la clave pública
     let public_key = RsaPublicKey::from_public_key_pem(&public_key)
-        .map_err(|_| "Error al cargar la clave pública".to_string())?;
+        .map_err(|_| "Error to load public key".to_string())?;
 
     // Mensaje de prueba
     let message = b"Hey depdem!";
@@ -123,7 +124,7 @@ pub fn verify_keys(public_key: &String) -> Result<bool, String> {
     // Firmar el mensaje con la clave privada
     let signature = private_key
         .sign(PaddingScheme::new_pkcs1v15_sign(None), &message[..])
-        .map_err(|_| "Error al firmar el mensaje".to_string())?;
+        .map_err(|_| "Error to sign message".to_string())?;
 
     // Verificar la firma con la clave pública
     public_key
@@ -132,7 +133,7 @@ pub fn verify_keys(public_key: &String) -> Result<bool, String> {
             &message[..],
             &signature,
         )
-        .map_err(|_| "La verificación de la firma falló".to_string())?;
+        .map_err(|_| "Verify signature failed".to_string())?;
 
     Ok(true)
 }
