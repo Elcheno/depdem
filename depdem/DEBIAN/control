@@ -1,0 +1,7 @@
+Package: Depdem
+Version: 1.0.0
+Section: base
+Priority: optional
+Architecture: amd64
+Maintainer: Elcheno <rubenca2312@gmail.com>
+Description: Managment service demon
