@@ -65,7 +65,7 @@ pub fn generate_keys() -> Result<(), String> {
     Ok(())
 }
 
-pub fn load_keys() -> Result<(), String> {
+pub fn load_keys() -> Result<String, String> {
     let dir_path = match env::var("SECRET_PATH") {
         Ok(path) => path,
         Err(_) => return Err(String::from("Error to load SECRET_PATH env variable")),
@@ -87,7 +87,7 @@ pub fn load_keys() -> Result<(), String> {
     if !Path::new(&private_key_file_path).exists() || !Path::new(&public_key_file_path).exists() {
         return Err(String::from("Error to load keys"));
     } else {
-        Ok(())
+        Ok("Keys loaded successfully".to_string())
     }
 }
 
