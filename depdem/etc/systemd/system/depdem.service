@@ -4,6 +4,7 @@ After=network.target
 
 [Service]
 ExecStart=/usr/local/bin/depdem
+WorkingDirectory=/etc/depdem
 Restart=on-failure
 
 [Install]
